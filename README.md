@@ -14,6 +14,14 @@ Assuming you have [node.js](http://nodejs.org/) installed, rerun the scraper as 
 $ npm install request cheerio async
 $ node scrape.js ./people-bmi.json > stats-bmi.js
 
+Each run also adds a dated snapshot of every person's citations, h-index and i10-index to `history-bmi.js` (rerunning on the same day replaces that day's snapshot). `index.html` uses it to show an h-index trend line and the change since each person's earliest snapshot. Commit `history-bmi.js` along with `stats-bmi.js` so the history is kept.
+
+To backfill history from an older stats file:
+
+```
+$ node history.js ./stats-bmi.js ./history-bmi.js
+```
+
 Then open up `index.html` and it should display the new statistics.
 
 Fetching from OpenAlex
