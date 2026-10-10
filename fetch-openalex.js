@@ -32,6 +32,9 @@ const LOCAL_INSTITUTIONS = [
 // five calendar years plus the current one.
 const SINCE_YEAR = new Date().getFullYear() - 5;
 
+// OpenAlex allows a few requests per second; stay well under it.
+const REQUEST_DELAY_MS = 250;
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function api(pathAndQuery) {
@@ -40,10 +43,12 @@ async function api(pathAndQuery) {
   if (process.env.OPENALEX_MAILTO) url.searchParams.set('mailto', process.env.OPENALEX_MAILTO);
 
   for (let attempt = 0; ; attempt++) {
+    await sleep(REQUEST_DELAY_MS);
     const resp = await fetch(url);
     if (resp.ok) return resp.json();
-    if ((resp.status === 429 || resp.status >= 500) && attempt < 4) {
-      await sleep(2000 * 2 ** attempt);
+    if ((resp.status === 429 || resp.status >= 500) && attempt < 6) {
+      const retryAfter = Number(resp.headers && resp.headers.get('retry-after'));
+      await sleep(retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt);
       continue;
     }
     throw new Error(`OpenAlex ${resp.status} for ${url.pathname}${url.search.replace(/api_key=[^&]+/, 'api_key=***')}`);
@@ -51,7 +56,7 @@ async function api(pathAndQuery) {
 }
 
 const normalize = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .toLowerCase().replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+  .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
 // "Carlos A Camargo, Jr." -> { first: "carlos", last: "camargo" }
 function nameParts(name) {
@@ -60,12 +65,24 @@ function nameParts(name) {
   return { first: tokens[0], last: tokens[tokens.length - 1], tokens };
 }
 
+// Compares against display_name only: OpenAlex's display_name_alternatives
+// often contain co-authors' names. A middle initial, when both sides have
+// one, must agree ("Joshua W Joseph" is not "Joshua J. Joseph").
 function nameMatches(person, author) {
-  const { first, last } = nameParts(person);
-  return [author.display_name, ...(author.display_name_alternatives || [])].some((alt) => {
-    const t = normalize(alt).split(/[\s-]+/);
-    return t.includes(last) && t.some((x) => x === first || (x.length === 1 && x === first[0]));
-  });
+  const { first, last, tokens } = nameParts(person);
+  const t = normalize(author.display_name).split(/[\s-]+/).filter(Boolean);
+  const lastAt = t.lastIndexOf(last);
+  if (lastAt < 0) return false;
+  const others = t.filter((_, i) => i !== lastAt);
+  const firstAt = others.findIndex((x) => x === first || (x.length === 1 && x === first[0]));
+  if (firstAt < 0) return false;
+  const ourMiddles = tokens.slice(1, -1).concat(
+    normalize(person).split(' ').filter((x) => x.length === 1)).map((x) => x[0]);
+  const theirMiddles = others.filter((_, i) => i !== firstAt).map((x) => x[0]);
+  if (ourMiddles.length && theirMiddles.length) {
+    return theirMiddles.some((m) => ourMiddles.includes(m));
+  }
+  return true;
 }
 
 function institutions(author) {
@@ -75,8 +92,16 @@ function institutions(author) {
   return [...names].filter(Boolean);
 }
 
-const isLocal = (author) => institutions(author)
-  .some((i) => LOCAL_INSTITUTIONS.some((k) => i.toLowerCase().includes(k)));
+const local = (names) => names.some((i) => LOCAL_INSTITUTIONS.some((k) => i.toLowerCase().includes(k)));
+
+// "current" when the author's most recent institution is local, "past" when
+// only an earlier affiliation was.
+function localness(author) {
+  if (local((author.last_known_institutions || []).map((i) => i.display_name))) return 'current';
+  return local(institutions(author)) ? 'past' : null;
+}
+
+const isLocal = (author) => localness(author) !== null;
 
 const doesEmergencyMedicine = (author) => (author.topics || [])
   .some((t) => /emergenc|trauma|toxicolog|resuscitat|critical care/i.test(
@@ -84,10 +109,11 @@ const doesEmergencyMedicine = (author) => (author.topics || [])
 
 function score(person, author) {
   return (nameMatches(person, author) ? 1 : 0)
-    + (isLocal(author) ? 2 : 0)
+    + ({ current: 2, past: 1 }[localness(author)] || 0)
     + (doesEmergencyMedicine(author) ? 1 : 0);
 }
 
+// Searches the name as written, then "First Last" only if that finds no one.
 async function searchAuthors(name) {
   const { first, last } = nameParts(name);
   const queries = [...new Set([name.replace(/,?\s*Jr\.?$/i, ''), `${first} ${last}`])];
@@ -95,13 +121,15 @@ async function searchAuthors(name) {
   for (const q of queries) {
     const res = await api(`/authors?search=${encodeURIComponent(q)}&per_page=25`);
     res.results.forEach((a) => seen.set(a.id, a));
+    if ([...seen.values()].some((a) => nameMatches(name, a) && isLocal(a))) break;
   }
   return [...seen.values()];
 }
 
 // Picks the OpenAlex author records for one person. OpenAlex often splits a
-// person's work across several records, so every record that matches the
-// name and a local institution is kept, not just the best one.
+// person's work across several records, so besides the best match, every
+// record that matches the name and is currently at a local institution is
+// kept too.
 async function matchPerson(name, overrides) {
   if (overrides[name]) {
     const ids = overrides[name].map((id) => id.replace(/^https?:\/\/openalex\.org\//, ''));
@@ -113,8 +141,8 @@ async function matchPerson(name, overrides) {
     .map((a) => ({ author: a, score: score(name, a) }))
     .sort((x, y) => y.score - x.score || y.author.cited_by_count - x.author.cited_by_count);
 
-  // Must match the name and a local institution.
-  const accepted = candidates.filter((c) => nameMatches(name, c.author) && isLocal(c.author));
+  const named = candidates.filter((c) => nameMatches(name, c.author) && isLocal(c.author));
+  const accepted = named.filter((c, i) => i === 0 || localness(c.author) === 'current');
   return {
     authors: accepted.map((c) => c.author),
     method: accepted.length ? 'search' : 'unmatched',
@@ -213,4 +241,4 @@ if (require.main === module) {
   main().catch((err) => { console.error(err); process.exit(1); });
 }
 
-module.exports = { nameParts, nameMatches, isLocal, hIndex, statsFromWorks };
+module.exports = { nameParts, nameMatches, isLocal, localness, hIndex, statsFromWorks };
