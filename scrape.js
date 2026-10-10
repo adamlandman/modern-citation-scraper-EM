@@ -1,76 +1,144 @@
-// From http://blog.miguelgrinberg.com/post/easy-web-scraping-with-nodejs
+// Originally based on http://blog.miguelgrinberg.com/post/easy-web-scraping-with-nodejs
+//
+// Usage: node scrape.js ./people-bmi.json [stats-bmi.js]
+//
+// With an output path, the file is only written when at least one profile was
+// scraped, so a run that gets blocked by Google Scholar keeps the old stats.
+// Without one, output goes to stdout as before. Progress and errors go to stderr.
 
-var request = require('request');
+var fs = require('fs');
+var path = require('path');
 var cheerio = require('cheerio');
-var async = require('async');
-var people = require(process.argv[2]);
 
-var scrapeEntry = function(person, doneCallback) {
-  var url = people[person];
-  var data = {};
+var MAX_ATTEMPTS = 3;
+var DELAY_MS = 1000;
+var USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+                 '(KHTML, like Gecko) Chrome/129.0 Safari/537.36';
 
-  // properly set the encoding, or we'll mangle accented characters:
-  // http://stackoverflow.com/questions/8332500/module-request-how-to-properly-retrieve-accented-characters-%EF%BF%BD-%EF%BF%BD-%EF%BF%BD
-  request({ encoding: 'binary', method: "GET", uri: url}, function(err, resp, body) {
-    var $ = cheerio.load(body);
-
-    if (typeof $('#gsc_rsb_st')[0] !== 'undefined') {
-    //try {
-      // We're output to stdout, so log to stderr
-      console.error("Scraping " + person + "...");
-
-      //var photo = $('#gsc_prf_pup-img')[0].attribs.src;
-      var affiliation = $('.gsc_prf_il', '#gsc_prf_i').first().text();
-
-      var keywords_root = $('#gsc_prf_int')[0].children;
-      var keywords = [];
-
-      for (var i=0; i<keywords_root.length; i++) {
-	if (typeof keywords_root[i].children === 'undefined') continue;
-        keywords.push(keywords_root[i].children[0].data);
-      }
-
-      var rawStats = $('#gsc_rsb_st');
-
-      var stats = {
-        'citations' : [ rawStats[0].children[1].children[0].children[1].children[0].data,
-                        rawStats[0].children[1].children[0].children[2].children[0].data ],
-        'hindex'    : [ rawStats[0].children[1].children[1].children[1].children[0].data,
-                        rawStats[0].children[1].children[1].children[2].children[0].data ],
-        'i10index'  : [ rawStats[0].children[1].children[2].children[1].children[0].data,
-                        rawStats[0].children[1].children[2].children[2].children[0].data ]
-      };
-
-      var rawYear = $('.gsc_md_hist_b');
-
-      data = {
-        'name' : person,
-        'url': url,
-        //'photo' : 'http://scholar.google.com' + photo,
-        'affiliation' : affiliation,
-        'keywords' : keywords,
-        'stats' : stats,
-        'year' : rawYear[0].children[0].children[0].data
-      };
-
-    //} catch (ex) {
-    } else {
-    //  console.error(ex);
-	console.error("Error with " + person + "...");
-    //  throw new Error(person);
-    }
-    //}
-
-    // Adding a timeout to regulate scraping speed.
-    setTimeout(function() {
-      doneCallback(null, data);
-    }, 1000);
-  });
+var sleep = function(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
 };
 
-// http://javascriptplayground.com/blog/2013/06/think-async/
-async.mapSeries(Object.keys(people), scrapeEntry, function (err, results) {
-  var date = new Date();
-  console.log('var date = "' + date + '"');
-  console.log('var data = ' + JSON.stringify(results, null, 2) + ';');
+// Errors we should not retry: a captcha or a page that isn't a profile won't
+// get better by asking again right away.
+var FatalError = function(message) {
+  this.name = 'FatalError';
+  this.message = message;
+};
+FatalError.prototype = Object.create(Error.prototype);
+
+var isBlocked = function(resp, body) {
+  return resp.status === 429 ||
+         /\/sorry\//.test(resp.url) ||
+         /gs_captcha|recaptcha|unusual traffic/i.test(body);
+};
+
+var fetchProfile = async function(url) {
+  var lastErr;
+  for (var attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      var resp = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en-US,en;q=0.9' },
+        signal: AbortSignal.timeout(30000)
+      });
+      var body = await resp.text();
+      if (isBlocked(resp, body)) throw new FatalError('blocked by captcha / rate limit (HTTP ' + resp.status + ')');
+      if (resp.status === 404) throw new FatalError('profile not found (HTTP 404)');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return body;
+    } catch (err) {
+      if (err instanceof FatalError) throw err;
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS) {
+        var wait = DELAY_MS * Math.pow(2, attempt);
+        console.error('  attempt ' + attempt + ' failed (' + err.message + '), retrying in ' + wait / 1000 + 's');
+        await sleep(wait);
+      }
+    }
+  }
+  throw new Error('failed after ' + MAX_ATTEMPTS + ' attempts: ' + lastErr.message);
+};
+
+var parseProfile = function(person, url, body) {
+  var $ = cheerio.load(body);
+
+  var statsTable = $('#gsc_rsb_st');
+  if (statsTable.length === 0) throw new FatalError('no citation table on page (not a public profile?)');
+
+  // Rows are Citations, h-index, i10-index; columns are "All" and "Since <year>".
+  var rows = statsTable.find('tbody tr').toArray().map(function(tr) {
+    return $(tr).find('td.gsc_rsb_std').toArray().map(function(td) { return $(td).text().trim(); });
+  });
+  if (rows.length < 3 || rows.some(function(r) { return r.length < 2; })) {
+    throw new FatalError('citation table has an unexpected layout');
+  }
+
+  var keywords = $('#gsc_prf_int a').toArray().map(function(a) { return $(a).text().trim(); });
+
+  return {
+    'name' : person,
+    'url': url,
+    'affiliation' : $('.gsc_prf_il', '#gsc_prf_i').first().text(),
+    'keywords' : keywords,
+    'stats' : {
+      'citations' : rows[0].slice(0, 2),
+      'hindex'    : rows[1].slice(0, 2),
+      'i10index'  : rows[2].slice(0, 2)
+    },
+    'year' : $('.gsc_md_hist_b').children().first().text().trim()
+  };
+};
+
+var main = async function() {
+  if (!process.argv[2]) {
+    console.error('Usage: node scrape.js ./people.json [output.js]');
+    process.exit(2);
+  }
+  var people = require(path.resolve(process.argv[2]));
+  var outFile = process.argv[3];
+
+  var names = Object.keys(people);
+  var results = [];
+  var failures = [];
+
+  for (var i = 0; i < names.length; i++) {
+    var person = names[i];
+    var url = people[person];
+    console.error('Scraping ' + person + ' (' + (i + 1) + '/' + names.length + ')...');
+    try {
+      var body = await fetchProfile(url);
+      results.push(parseProfile(person, url, body));
+    } catch (err) {
+      console.error('  SKIPPED ' + person + ': ' + err.message);
+      failures.push({ name: person, url: url, error: err.message });
+    }
+    // Regulate scraping speed.
+    if (i < names.length - 1) await sleep(DELAY_MS);
+  }
+
+  console.error('\nScraped ' + results.length + ' of ' + names.length + ' profiles.');
+  if (failures.length > 0) {
+    console.error('Skipped ' + failures.length + ':');
+    failures.forEach(function(f) { console.error('  - ' + f.name + ': ' + f.error + ' (' + f.url + ')'); });
+  }
+
+  var output = 'var date = "' + new Date() + '"\n' +
+               'var data = ' + JSON.stringify(results, null, 2) + ';\n';
+
+  if (outFile) {
+    if (results.length === 0) {
+      console.error('No profiles scraped; leaving ' + outFile + ' unchanged.');
+      process.exit(1);
+    }
+    fs.writeFileSync(outFile, output);
+    console.error('Wrote ' + outFile);
+  } else {
+    process.stdout.write(output);
+    if (results.length === 0) process.exit(1);
+  }
+};
+
+main().catch(function(err) {
+  console.error(err);
+  process.exit(1);
 });

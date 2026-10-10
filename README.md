@@ -8,10 +8,13 @@ This tool was created based on the work of Allison McCoy at Vanderbilt Universit
 Rerunning the Scraper
 ---------------------
 
-Assuming you have [node.js](http://nodejs.org/) installed, rerun the scraper as follows:
+Assuming you have [node.js](http://nodejs.org/) 18 or newer installed, rerun the scraper as follows:
 
 ```
-$ npm install request cheerio async
-$ node scrape.js ./people-bmi.json > stats-bmi.js
+$ npm install
+$ node scrape.js ./people-bmi.json stats-bmi.js
+```
 
-Then open up `index.html` and it should display the new statistics.
+(`npm run scrape` does the same thing.) Then open up `index.html` and it should display the new statistics.
+
+Each profile is retried up to three times on network or server errors. If Google Scholar shows a captcha, or a profile can't be read, that person is skipped and listed at the end of the run; everyone else is still saved. If no profile could be scraped at all, `stats-bmi.js` is left untouched. Leaving off the output file prints the results to stdout instead.
