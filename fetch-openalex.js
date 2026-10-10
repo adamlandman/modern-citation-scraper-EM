@@ -109,7 +109,7 @@ const doesEmergencyMedicine = (author) => (author.topics || [])
 
 function score(person, author) {
   return (nameMatches(person, author) ? 1 : 0)
-    + ({ current: 2, past: 1 }[localness(author)] || 0)
+    + ({ current: 3, past: 1 }[localness(author)] || 0)
     + (doesEmergencyMedicine(author) ? 1 : 0);
 }
 
@@ -145,7 +145,9 @@ async function matchPerson(name, overrides) {
   const accepted = named.filter((c, i) => i === 0 || localness(c.author) === 'current');
   return {
     authors: accepted.map((c) => c.author),
-    method: accepted.length ? 'search' : 'unmatched',
+    // "check": the best record only had a local affiliation in the past.
+    method: !accepted.length ? 'unmatched'
+      : localness(accepted[0].author) === 'current' ? 'search' : 'check',
     candidates: candidates.slice(0, 5).map((c) => ({
       id: c.author.id, name: c.author.display_name, score: c.score,
       works: c.author.works_count, citations: c.author.cited_by_count,
@@ -222,6 +224,7 @@ async function main() {
         stats: statsFromWorks(works),
         year: years.length ? String(Math.min(...years)) : '',
         openalex_ids: ids,
+        openalex_match: match.method,
       });
     } catch (err) {
       console.error(`  error with ${name}: ${err.message}`);

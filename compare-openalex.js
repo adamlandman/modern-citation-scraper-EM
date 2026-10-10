@@ -64,6 +64,7 @@ function main() {
       hA: num(x, 'hindex'), hB: num(y, 'hindex'),
       cA: num(x, 'citations'), cB: num(y, 'citations'),
       ids: (y.openalex_ids || []).length,
+      check: y.openalex_match === 'check',
     };
   });
 
@@ -87,7 +88,7 @@ function main() {
   out.push('|---|---|---|---|---|---|---|---|');
   rows.sort((x, y) => Math.abs(y.hB - y.hA) - Math.abs(x.hB - x.hA)).forEach((r) => {
     const d = r.hB - r.hA;
-    out.push(`| ${r.name} | ${r.hA} | ${r.hB} | ${d > 0 ? '+' : ''}${d} | ${r.cA} | ${r.cB} | ${r.cA ? (r.cB / r.cA).toFixed(2) : '–'} | ${r.ids || ''} |`);
+    out.push(`| ${r.name} | ${r.hA} | ${r.hB} | ${d > 0 ? '+' : ''}${d} | ${r.cA} | ${r.cB} | ${r.cA ? (r.cB / r.cA).toFixed(2) : '–'} | ${r.ids || ''}${r.check ? ' (check match)' : ''} |`);
   });
 
   console.log(out.join('\n'));
