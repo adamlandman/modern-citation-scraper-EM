@@ -3,7 +3,14 @@
 var request = require('request');
 var cheerio = require('cheerio');
 var async = require('async');
+var path = require('path');
+var history = require('./history');
 var people = require(process.argv[2]);
+
+// Each run also adds a dated snapshot to a history file (people-bmi.json ->
+// history-bmi.js) unless a different path is given as the second argument.
+var historyPath = process.argv[3] || path.join(path.dirname(process.argv[2]),
+  'history-' + path.basename(process.argv[2]).replace(/^people-/, '').replace(/\.json$/, '') + '.js');
 
 var scrapeEntry = function(person, doneCallback) {
   var url = people[person];
@@ -73,4 +80,7 @@ async.mapSeries(Object.keys(people), scrapeEntry, function (err, results) {
   var date = new Date();
   console.log('var date = "' + date + '"');
   console.log('var data = ' + JSON.stringify(results, null, 2) + ';');
+
+  var snapshot = history.appendSnapshot(historyPath, results, history.formatDate(date));
+  console.error('Saved ' + Object.keys(snapshot.stats).length + ' people to ' + historyPath);
 });
