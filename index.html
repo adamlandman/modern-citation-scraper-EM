@@ -7,6 +7,10 @@
 <script src="tablesorter/jquery.tablesorter.min.js"></script>
 <script type="text/javascript" src="stats-bmi.js"></script>
 <script type="text/javascript" src="history-bmi.js"></script>
+<!-- Written weekly by the "Update citation data" Action; when present they
+     replace the Google Scholar data loaded above. -->
+<script type="text/javascript" src="stats-openalex.js"></script>
+<script type="text/javascript" src="history-openalex.js"></script>
 </head>
 <body>
 <!--add Fork me on GitHub-->
@@ -91,8 +95,8 @@ If you wish to see a name added, please <a href="https://docs.google.com/forms/d
 </div>
 
 	
-<div id="date" style="font-size:smaller;">Data scraped from Google Scholar: "name",
-"citations", "h-index", and "i10-index" are from author profile;
+<div id="date" style="font-size:smaller;"><span id="source">Data scraped from Google Scholar: "name",
+"citations", "h-index", and "i10-index" are from author profile;</span>
 "year" denotes year of first citation.
 "h-index trend" and "citations gained" compare each person's earliest
 and latest saved snapshots.</div>
@@ -151,7 +155,8 @@ function round(n) {
   return Math.round(n*10)/10;
 }
 
-// Per-person series from history-bmi.js, keyed by Scholar user id.
+// Per-person series from the history file, keyed by Scholar user id
+// (or by name for sources without one, such as OpenAlex).
 var snapshots = (typeof statsHistory !== 'undefined') ? statsHistory.snapshots : [];
 function seriesFor(userId) {
   var series = [];
@@ -201,7 +206,7 @@ for (var i=0; i< data.length; i++) {
 
   var regex = /user=([^&]+)/;
   var match = regex.exec(data[i].url);
-  var userId = match[1];
+  var userId = match ? match[1] : data[i].name;
 
   var row = $('<tr/>');
   row.append($('<td class="rankColumn" />'));
@@ -223,6 +228,10 @@ for (var i=0; i< data.length; i++) {
 
 // http://tablesorter.com/docs/
 $(document).ready(function() { 
+  if (typeof source !== 'undefined' && source === 'OpenAlex') {
+    $("#source").html('Data from <a href="https://openalex.org">OpenAlex</a>, refreshed weekly: ' +
+      '"citations", "h-index", and "i10-index" are computed from each person\'s matched author records;');
+  }
   $("#date").append("<br/><small>Last updated: " + date + "</small>");
   if (snapshots.length) {
     $("#date").append("<br/><small>History: " + snapshots.length + " snapshot" + (snapshots.length > 1 ? "s" : "") +

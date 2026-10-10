@@ -35,3 +35,10 @@ $ node compare-openalex.js stats-bmi.js stats-openalex.js
 ```
 
 It writes the OpenAlex author records it picked for each person to `openalex-matches.json`. To correct a match, list the right IDs in `openalex-ids.json`, e.g. `{ "Adam Landman": ["A5002790663"] }`. Set `OPENALEX_API_KEY` to avoid rate limits. The `OpenAlex fetch` GitHub workflow runs both scripts and attaches the results.
+
+Automatic weekly updates
+------------------------
+
+The `Update citation data` GitHub workflow runs every Monday (and on demand from the Actions tab). It runs `node update-openalex.js ./people-bmi.json`, which fetches everyone from OpenAlex, rewrites `stats-openalex.js`, adds a dated snapshot to `history-openalex.js`, and commits both to `main`. GitHub Pages serves `index.html` from `main`, so that commit is what publishes the new numbers. If fewer than 90% of people come back, nothing is written and the run fails, so a bad week never replaces good data.
+
+`index.html` shows the OpenAlex files when they exist and otherwise falls back to the Google Scholar `stats-bmi.js`.
