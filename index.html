@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="tablesorter/theme.dropbox.css">
 <script src="tablesorter/jquery.tablesorter.min.js"></script>
 <script type="text/javascript" src="stats-bmi.js"></script>
+<script type="text/javascript" src="history-bmi.js"></script>
+<!-- Written weekly by the "Update citation data" Action; when present they
+     replace the Google Scholar data loaded above. -->
+<script type="text/javascript" src="stats-openalex.js"></script>
+<script type="text/javascript" src="history-openalex.js"></script>
 </head>
 <body>
 <!--add Fork me on GitHub-->
@@ -90,9 +95,11 @@ If you wish to see a name added, please <a href="https://docs.google.com/forms/d
 </div>
 
 	
-<div id="date" style="font-size:smaller;">Data scraped from Google Scholar: "name",
-"citations", "h-index", and "i10-index" are from author profile;
-"year" denotes year of first citation.</div>
+<div id="date" style="font-size:smaller;"><span id="source">Data scraped from Google Scholar: "name",
+"citations", "h-index", and "i10-index" are from author profile;</span>
+"year" denotes year of first citation.
+"h-index trend" and "citations gained" compare each person's earliest
+and latest saved snapshots.</div>
 
 <p/>
 
@@ -136,6 +143,8 @@ If you wish to see a name added, please <a href="https://docs.google.com/forms/d
     <th width="30" style="text-align:center;">/y</th>
     <th width="85" style="text-align:center;">i10-index</th>
     <th width="30" style="text-align:center;">/y</th>
+    <th width="110" style="text-align:center;" title="h-index over saved snapshots, and change since the earliest one">h-index trend</th>
+    <th width="90" style="text-align:center;" title="Citations gained since the earliest saved snapshot">Citations gained</th>
     <th width="500" class="keywordColumn" name="Keywords">Keywords</th>
 </tr> 
 </thead> 
@@ -146,12 +155,58 @@ function round(n) {
   return Math.round(n*10)/10;
 }
 
+// Per-person series from the history file, keyed by Scholar user id
+// (or by name for sources without one, such as OpenAlex).
+var snapshots = (typeof statsHistory !== 'undefined') ? statsHistory.snapshots : [];
+function seriesFor(userId) {
+  var series = [];
+  snapshots.forEach(function(s) {
+    if (s.stats[userId]) series.push($.extend({ date: s.date }, s.stats[userId]));
+  });
+  return series;
+}
+
+function signed(n) {
+  return (n > 0 ? '+' : '') + n;
+}
+
+// Small inline line chart of one stat across snapshots.
+function sparkline(series, key) {
+  var w = 60, h = 18, pad = 2;
+  var values = series.map(function(p) { return p[key]; });
+  var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+  var points = values.map(function(v, i) {
+    var x = values.length > 1 ? pad + i * (w - 2 * pad) / (values.length - 1) : w / 2;
+    var y = max > min ? h - pad - (v - min) * (h - 2 * pad) / (max - min) : h / 2;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  });
+  var last = points[points.length - 1].split(',');
+  return '<svg width="' + w + '" height="' + h + '" style="vertical-align:middle">' +
+    '<polyline points="' + points.join(' ') + '" fill="none" stroke="#3b73b9" stroke-width="1.5" />' +
+    '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="2" fill="#3b73b9" /></svg>';
+}
+
+function trendCells(userId) {
+  var series = seriesFor(userId);
+  if (series.length < 2) {
+    var none = 'Only one snapshot so far' + (series.length ? ' (' + series[0].date + ')' : '');
+    return [$('<td title="' + none + '"/>').html('&ndash;'), $('<td title="' + none + '"/>').html('&ndash;')];
+  }
+  var first = series[0], last = series[series.length - 1];
+  var history = series.map(function(p) { return p.date + ': h ' + p.hindex + ', ' + p.citations + ' citations'; }).join('&#10;');
+  var dh = last.hindex - first.hindex;
+  return [
+    $('<td style="white-space:nowrap" title="' + history + '"/>').html(sparkline(series, 'hindex') + ' ' + signed(dh)),
+    $('<td title="' + history + '"/>').html(signed(last.citations - first.citations))
+  ];
+}
+
 for (var i=0; i< data.length; i++) {
   if (typeof data[i].stats === 'undefined') continue;
 
   var regex = /user=([^&]+)/;
   var match = regex.exec(data[i].url);
-  var userId = match[1];
+  var userId = match ? match[1] : data[i].name;
 
   var row = $('<tr/>');
   row.append($('<td class="rankColumn" />'));
@@ -165,6 +220,7 @@ for (var i=0; i< data.length; i++) {
   row.append($('<td/>').html(round(data[i].stats.hindex[0]/y)));
   row.append($('<td/>').html(data[i].stats.i10index[0]));
   row.append($('<td/>').html(round(data[i].stats.i10index[0]/y)));
+  trendCells(userId).forEach(function(cell) { row.append(cell); });
   row.append($('<td style="text-align: left" />').html(data[i].keywords.join(', ')));
   row.append($('<td class="keywordColumn" name="' + data[i].keywords.join(', ').toLowerCase() + '" hidden="true" />').html(data[i].keywords.join(', ').toLowerCase()));
   $("#stats").append(row);
@@ -172,12 +228,21 @@ for (var i=0; i< data.length; i++) {
 
 // http://tablesorter.com/docs/
 $(document).ready(function() { 
+  if (typeof source !== 'undefined' && source === 'OpenAlex') {
+    $("#source").html('Data from <a href="https://openalex.org">OpenAlex</a>, refreshed weekly: ' +
+      '"citations", "h-index", and "i10-index" are computed from each person\'s matched author records;');
+  }
   $("#date").append("<br/><small>Last updated: " + date + "</small>");
+  if (snapshots.length) {
+    $("#date").append("<br/><small>History: " + snapshots.length + " snapshot" + (snapshots.length > 1 ? "s" : "") +
+      " from " + snapshots[0].date + " to " + snapshots[snapshots.length - 1].date + "</small>");
+  }
   //initial sorting by h-Index and Citations, added no sorting for 1st and 2nd column since sort was incorrect
 $("#stats").tablesorter({
     sortList: [[5, 1], [3, 1]],
     headers: {
-    	0: { sorter: false }, 1: { sorter: false }, 2: { sorter: false }, 4: { sorter: false }, 6: { sorter: false }, 8: { sorter: false }, 9: { sorter: false }
+    	0: { sorter: false }, 1: { sorter: false }, 2: { sorter: false }, 4: { sorter: false }, 6: { sorter: false }, 8: { sorter: false },
+	9: { sorter: 'digit' }, 10: { sorter: 'digit' }, 11: { sorter: false }
 	}
 });  
 
