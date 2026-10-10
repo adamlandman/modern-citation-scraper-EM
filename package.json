@@ -1,7 +1,11 @@
 {
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "scrape": "node scrape.js ./people-bmi.json stats-bmi.js"
+  },
   "dependencies": {
-    "async": "^3.2.6",
-    "cheerio": "^1.0.0",
-    "request": "^2.88.2"
+    "cheerio": "^1.0.0"
   }
 }
