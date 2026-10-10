@@ -1,0 +1,276 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="tablesorter/style.css" type="text/css" media="print, projection, screen" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<link rel="stylesheet" href="tablesorter/theme.dropbox.css">
+<script src="tablesorter/jquery.tablesorter.min.js"></script>
+<script type="text/javascript" src="stats-comps.js"></script>
+</head>
+<body>
+<!--add Fork me on GitHub-->
+<style>
+    #forkongithub a {
+        background: #000;
+        color: #fff;
+        text-decoration: none;
+        font-family: arial,sans-serif;
+        text-align: center;
+        font-weight: bold;
+        padding: 5px 40px;
+        font-size: 1rem;
+        line-height: 2rem;
+        position: relative;
+        transition: 0.5s;
+    }
+
+        #forkongithub a:hover {
+            background: #c11;
+            color: #fff;
+        }
+
+        #forkongithub a::before, #forkongithub a::after {
+            content: "";
+            width: 100%;
+            display: block;
+            position: absolute;
+            top: 1px;
+            left: 0;
+            height: 1px;
+            background: #fff;
+        }
+
+        #forkongithub a::after {
+            bottom: 1px;
+            top: auto;
+        }
+
+    @media screen and (min-width:800px) {
+        #forkongithub {
+            position: absolute;
+            display: block;
+            top: 0;
+            right: 0;
+            width: 200px;
+            overflow: hidden;
+            height: 200px;
+            z-index: 9999;
+        }
+
+            #forkongithub a {
+                width: 200px;
+                position: absolute;
+                top: 40px;
+                right: -80px;
+                transform: rotate(45deg);
+                -webkit-transform: rotate(45deg);
+                -ms-transform: rotate(45deg);
+                -moz-transform: rotate(45deg);
+                -o-transform: rotate(45deg);
+                box-shadow: 4px 4px 10px rgba(0,0,0,0.8);
+            }
+    }
+</style><span id="forkongithub"><a href="https://github.com/adamlandman/modern-citation-scraper-EM/">Fork me on GitHub</a></span>
+
+<h1>Citations Statistics of Landman Comparands</h1>
+
+<h5 style="font-weight:normal;"><b>By <a href="https://connects.catalyst.harvard.edu/Profiles/display/Person/92460">Adam Landman</a> (Brigham and Women's Hospital and Harvard Medical School)</b><br />Based on code from <a href="https://www.vumc.org/dbmi/person/allison-mccoy-phd-ms">Allison McCoy</a> (Vanderbilt University Medical Center) and <a href="https://cs.uwaterloo.ca/~jimmylin/">Jimmy Lin</a> (University of Waterloo)</h5>
+
+<div>
+<h5 style="font-weight:normal;"><b>Editorial note:</b> This list contains only researchers who have a Google Scholar profile; names were identified by snowball sampling and various other <i>ad hoc</i> techniques. Of course, scholarly achievement is only partially measured by citation counts, which are known to be flawed in many ways. Evaluations of scholars should include comprehensive examination of their research contributions.
+If you wish to see a name added, please <a href="https://docs.google.com/forms/d/e/1FAIpQLSc4TCNeZCdjxvTEl5CdLtskoArccQyCgKNww2iF4gz7ToN98A/viewform?usp=sf_link">submit a request</a>.</br>
+<p>
+</div>
+
+<div>
+<h5 style="font-weight:normal;"><b>Other Views:</p> 
+<a href="index.html">Citations Statistics of Emergency Medicine Researchers</a>
+</br>
+<p>
+</div>
+	
+<div id="date" style="font-size:smaller;">Data scraped from Google Scholar: "name",
+"citations", "h-index", and "i10-index" are from author profile;
+"year" denotes year of first citation.</div>
+
+<p/>
+
+<div class="keywords">
+<span><b>Find:</b> <input size="35" type="text" id="FilterTextBox" name="FilterTextBox" placeholder="e.g., 'FACEP', name, affiliation" /><br /></span>
+<span><b>Keywords:</b> </span>
+<span title="clinical informatics, clinical information systems, health information technology, electronic health records, health informatics, medical informatics, nursing informatics, dental informatics">
+    <input type="checkbox" name="KeywordCheckBox" value="Informatics" />Clinical Informatics&nbsp;&nbsp;</span>
+<span title="sports medicine, sports med, sports">
+    <input type="checkbox" name="KeywordCheckBox" value="Sportsmed" />Sports Medicine&nbsp;&nbsp;</span>
+<span title="critical care, anesthesiology, critical care medicine, neurocritical, surgical, surgical critical care">
+    <input type="checkbox" name="KeywordCheckBox" value="Criticalcare" />Critical Care&nbsp;&nbsp;</span>
+<span title="emergency medical services, prehospital, ambulance, EMS">
+  <input type="checkbox" name="KeywordCheckBox" value="EMS" />Emergency Medical Services&nbsp;&nbsp;</span>
+<span title="administration, leadersip, management">
+    <input type="checkbox" name="KeywordCheckBox" value="Admin" />Administration&nbsp;&nbsp;</span>
+<span title="pain, hospice, palliative care">
+    <input type="checkbox" name="KeywordCheckBox" value="Palliative" />Hospice and Palliative Care&nbsp;&nbsp;</span>
+<span title="toxicology, poison, medical toxicology">
+    <input type="checkbox" name="KeywordCheckBox" value="Tox" />Toxicology&nbsp;&nbsp;</span>
+<span title="pain, pain medicine">
+    <input type="checkbox" name="KeywordCheckBox" value="Pain" />Pain Medicine&nbsp;&nbsp;</span>
+<span title="peds, pediatric, pediatric emergency medicine, children, kids">
+    <input type="checkbox" name="KeywordCheckBox" value="Peds" />Pediatric Emergency Medicine&nbsp;&nbsp;</span>
+<span title="hyperbaric, undersea">
+    <input type="checkbox" name="KeywordCheckBox" value="Sea" />Undersea and Hyperbaric Medicine&nbsp;&nbsp;</span>
+<span title="addiction, addiction medicine, pain">
+    <input type="checkbox" name="KeywordCheckBox" value="Addiction" />Addiction Medicine&nbsp;&nbsp;</span>
+<span title="brain, brain injury, stroke">
+    <input type="checkbox" name="KeywordCheckBox" value="Brain" />Brain Injury Medicine&nbsp;&nbsp;</span>
+</div>
+<table id="stats" border="0" class="tablesorter-dropbox tablesorter filterable keywordfilterable">
+<thead> 
+<tr>
+    <th width="55" style="text-align:center;">Rank</th>
+    <th width="200">Name/Affiliation</th>
+    <th width="50" style="text-align:center;">Year</th>
+    <th width="90" style="text-align:center;">Citations</th>
+    <th width="30" style="text-align:center;">/y</th>
+    <th width="80" style="text-align:center;">h-index</th>
+    <th width="30" style="text-align:center;">/y</th>
+    <th width="85" style="text-align:center;">i10-index</th>
+    <th width="30" style="text-align:center;">/y</th>
+    <th width="500" class="keywordColumn" name="Keywords">Keywords</th>
+</tr> 
+</thead> 
+</table>
+
+<script>
+function round(n) {
+  return Math.round(n*10)/10;
+}
+
+for (var i=0; i< data.length; i++) {
+  if (typeof data[i].stats === 'undefined') continue;
+
+  var regex = /user=([^&]+)/;
+  var match = regex.exec(data[i].url);
+  var userId = match[1];
+
+  var row = $('<tr/>');
+  row.append($('<td class="rankColumn" />'));
+  var currentYear = new Date().getFullYear();
+  var y = (data[i].year < currentYear) ? (currentYear - data[i].year) : 1;
+  row.append($('<td style="text-align: left"/>').html('<a href="' + data[i].url + '" target="_blank">' + data[i].name + '</a><br />' + data[i].affiliation ));
+  row.append($('<td/>').html(data[i].year));
+  row.append($('<td/>').html(data[i].stats.citations[0]));
+  row.append($('<td/>').html(Math.round(data[i].stats.citations[0]/y)));
+  row.append($('<td/>').html(data[i].stats.hindex[0]));
+  row.append($('<td/>').html(round(data[i].stats.hindex[0]/y)));
+  row.append($('<td/>').html(data[i].stats.i10index[0]));
+  row.append($('<td/>').html(round(data[i].stats.i10index[0]/y)));
+  row.append($('<td style="text-align: left" />').html(data[i].keywords.join(', ')));
+  row.append($('<td class="keywordColumn" name="' + data[i].keywords.join(', ').toLowerCase() + '" hidden="true" />').html(data[i].keywords.join(', ').toLowerCase()));
+  $("#stats").append(row);
+}
+
+// http://tablesorter.com/docs/
+$(document).ready(function() { 
+  $("#date").append("<br/><small>Last updated: " + date + "</small>");
+  //initial sorting by h-Index and Citations, added no sorting for 1st and 2nd column since sort was incorrect
+$("#stats").tablesorter({
+    sortList: [[5, 1], [3, 1]],
+    headers: {
+    	0: { sorter: false }, 1: { sorter: false }, 2: { sorter: false }, 4: { sorter: false }, 6: { sorter: false }, 8: { sorter: false }, 9: { sorter: false }
+	}
+});  
+
+  // https://stackoverflow.com/questions/6549518/jquery-tablesorter-with-row-numbers
+  var table = $("#stats");
+  table.bind("sortEnd",function() {
+    var i = 1;
+    table.find("tr:gt(0)").each(function() {
+      $(this).find("td:eq(0)").attr('name', i);
+      $(this).find("td:eq(0)").text(i);
+      i++;
+    });
+  });
+
+  //add index column with all content.
+ $(".filterable tr:has(td)").each(function(){
+   var t = $(this).text().toLowerCase(); //all row text
+   $("<td class='indexColumn'></td>")
+    .hide().text(t).appendTo(this);
+ });//each tr
+ $("#FilterTextBox").keyup(function(){
+   var s = $(this).val().toLowerCase().split(" ");
+   //show all rows.
+   $(".filterable tr:hidden").show();
+   $.each(s, function(){
+       $(".filterable tr:visible .indexColumn:not(:contains('"
+          + this + "'))").parent().hide();
+   });//each
+ });//key up.
+
+        var keywordSynonyms = {
+          Sportsmed: ["sports medicine", "sports med", "sports"],
+          Criticalcare: ["critical care", "anesthesiology", "critical care medicine", "neurocritical", "surgical", "surgical critical care"],
+          EMS: ["emergency medical services", "prehospital", "ambulance", "EMS", "disaster"],
+          Admin: ["administration", "leadersip", "management", "operations", "quality", "safety", "costs", "value", "policy"],
+          Palliative: ["pain", "hospice", "palliative care"],
+          Tox: ["toxicology", "poison", "medical toxicology", "substance use", "opiod"],
+          Pain: ["pain", "pain medicine"],
+          Peds: ["peds", "pediatric", "pediatric emergency medicine", "children", "kids", "pediatrics", "child"],
+          Sea: ["hyperbaric", "undersea"],
+          Addiction: ["addiction", "addiction medicine", "pain", "substance use", "opiod"],
+          Brain: ["brain", "brain injury", "stroke", "head trauma", "neurologic"],
+          Informatics: ["clinical informatics", "medical informatics", "decision support", "electronic health record", "health information technology",
+                              "clinical information system", "health informatics", "nursing informatics", "dental informatics", "innovation", "digital", "machine learning", "artificial intelligence", "AI"]
+          };
+
+  $("input[name='KeywordCheckBox']").change(function(){
+    var keywords = [];
+
+    $("input[name='KeywordCheckBox']").each(function() {
+      if ($(this).is(":checked")) {
+              keywords.push("Keywords");
+              keywordSynonyms[$(this).val()].forEach(function(keyword) {
+                keywords.push(keyword);
+              });
+      }
+    });
+
+    if (keywords == "") {
+      $(".keywordfilterable tr:hidden").show(); // show all if we have no keywords selected
+	$("tr:visible .rankColumn").each(function() {
+		var r = $(this).attr('name');
+		$(this).text(r);
+	});
+    } else {
+      $(".keywordfilterable tr:visible").hide(); // hide them all first, then go back and show them if they have any of the keywords
+      keywords.forEach(function(keyword) {      
+        $(".keywordfilterable tr:hidden .keywordColumn:contains(', "  + keyword + "')").parent().show();
+        $(".keywordfilterable tr:hidden .keywordColumn[name^='"  + keyword + "']").parent().show();
+      });
+
+	var i = 1;
+	$("tr:visible .rankColumn").each(function() {
+		var r = $(this).attr('name');
+		$(this).html(r + "<br />(" + i + ")");
+		i++;
+	});
+    }
+  });
+});
+
+</script>
+
+<!--  Adam Commented out on 10/27/2024
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-51046922-1', 'allisonbmccoy.github.io');
+  ga('send', 'pageview');
+</script>
+-->
+
+</body>
+</html>
