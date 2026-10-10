@@ -15,3 +15,15 @@ $ npm install request cheerio async
 $ node scrape.js ./people-bmi.json > stats-bmi.js
 
 Then open up `index.html` and it should display the new statistics.
+
+Fetching from OpenAlex
+----------------------
+
+`fetch-openalex.js` gets the same statistics from the free [OpenAlex](https://openalex.org/) API instead of scraping Scholar (Node 18+, no dependencies):
+
+```
+$ node fetch-openalex.js ./people-bmi.json > stats-openalex.js
+$ node compare-openalex.js stats-bmi.js stats-openalex.js
+```
+
+It writes the OpenAlex author records it picked for each person to `openalex-matches.json`. To correct a match, list the right IDs in `openalex-ids.json`, e.g. `{ "Adam Landman": ["A5002790663"] }`. Set `OPENALEX_API_KEY` to avoid rate limits. The `OpenAlex fetch` GitHub workflow runs both scripts and attaches the results.
